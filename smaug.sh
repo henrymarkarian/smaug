@@ -2,7 +2,7 @@
 
 function main {
     if [ "$1" == "-h" ] || [ "$1" == "--help" ] || [ "$#" -lt 2 ]; then
-        echo "Usage: smaug.sh <GitHub username> <project name>"
+        echo "Usage: smaug.sh <GitHub username> <project name> <output directory>"
         echo "Options:"
         echo "  -h   print this help message"
         echo "  -a   download all versions"
@@ -10,8 +10,7 @@ function main {
         exit 0
     fi
 
-    while getopts ":i:da" opt; do
-        echo $opt
+    while getopts ":da" opt; do
         case $opt in
             d)
                 DEBUG=true
@@ -36,23 +35,32 @@ function main {
         mkdir smaug
     fi
     cd smaug
-    curl -H "Accept: application/vnd.github+json" https://api.github.com/repos/"$1"/"$2"/releases > out
+    if [ "$DEBUG" == "true" ]; then
+        curl -H "Accept: application/vnd.github+json" https://api.github.com/repos/"$1"/"$2"/releases > out
+    else
+        curl --silent -H "Accept: application/vnd.github+json" https://api.github.com/repos/"$1"/"$2"/releases > out
+    fi
     grep -F "browser_download_url" out | sed -n "s/^[ \t]*\"browser_download_url\": \"\(.*\)\"$/\1/p" > out2
     for f in $(cat out2); do
         if [ "$DEBUG" == "true" ]; then
             echo "INFO - Found Repo: $f"
         fi
-        echo "---- Download? (y/n) ----"
         if [ "$ALL" != "true" ]; then
+            echo "---- Download? (y/n) ----"
             read -n 1 keypress
             echo
         fi
-        if [ "$keypress" == "y" | "$ALL" == "true" ]; then
-            echo "---- Downloading... ----"
+        if [ "$keypress" == "y" ] || [ "$ALL" == "true" ]; then
             dest=$(echo $f | sed -n "s/^.*\/\(.*\)\.zip$/\1/p" | cat)
-            curl -L "$f" -o "$dest"
+            if [ "$DEBUG" == "true" ]; then
+                echo "---- Downloading $dest...----"
+                curl -L "$f" -o "$3/$dest.zip"
+            else
+                curl --silent -L "$f" -o "$3/$dest.zip"
+            fi
         fi
     done
+    rm -r smaug
 }
 
 if [ "$0" == "$BASH_SOURCE" ]; then
